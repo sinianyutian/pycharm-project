@@ -12,10 +12,9 @@ os.environ["SPARK_HOME"] = "/usr/local/spark"
 
 import time
 
-from matplotlib.pyplot import *
 from numpy import *
-import numpy as np
 from pyspark import SparkContext
+import progressbar
 
 # Initialize SparkContext
 sc = SparkContext("spark://ubuntu:7077", "spark na-sa")
@@ -23,8 +22,8 @@ sc = SparkContext("spark://ubuntu:7077", "spark na-sa")
 # print words.count()
 
 n_itr = 20  # 迭代次数
-ns = 100  # ns参数
-nr = 10  # nr参数 可设为自适应参数
+ns = 10  # ns参数
+nr = 2  # nr参数 可设为自适应参数
 n_par = 2  # 参数个数
 lowb = asarray([-10, -10])  # 下边界
 upperb = asarray([10, 10])  # 上边界
@@ -32,27 +31,27 @@ x_idx = 0  # 显示i分量为x轴
 y_idx = 1  # 显示j分量为y轴
 debug = 0  # 是否开启调试模式,0关闭，1开启（n_par~=2时自动关闭）
 method = 'NA'  # 'MC' 蒙特卡洛算法,'NA' 邻近算法
-parallel_num = 2
-
+parallel_nums = [1, 2, 3, 4]
 
 # ##---------------------------------------------------------------
 # 目标函数设置
 ##---------------------------------------------------------------
 # f = lambda x: (x[0] - 3.5) ** 2 + (x[1] + 1) ** 2  # 目标函数
 # 测试函数 参照Page153 MATLAB优化算法安全分析与应用
-# f=lambda x:0.5-(sin(sqrt(x(1)**2+x(2)**2))**2-0.5)/ ...
-#      (1+0.001*(x(1)**2+x(2)**2))**2  #Schaffer函数
-# f=lambda x:-100*(x[1]-x[0]**2)**2-(x[0]-1)**2 #Rosenbrock函数
+# f = lambda x: 0.5 - (sin(sqrt(x[0] ** 2 + x[1] ** 2)) ** 2 - 0.5) / \
+#                     (1 + 0.001 * (x[0] ** 2 + x[1] ** 2)) ** 2  # Schaffer函数
+f = lambda x: 100 * (x[1] - x[0] ** 2) ** 2 + (x[0] - 1) ** 2  # Rosenbrock函数
 # f=lambda x:1/4000*sum(x.**2)-prod(cos(x./(sqrt(1:length(x)))))+1 #Griewank函数
 # f=lambda x:sum(asarray(x)**2-10*cos(2*pi*asarray(x))+10) #Rastrigin函数
-# f=lambda x:-20*exp(-0.2*sqrt(1/length(x)*sum(x.**2)))-exp(1/length(x)* ...
-#     sum(cos(2*pi.*x)))+exp(1)+20  #Ackley函数
+# f=lambda x:-20*exp(-0.2*sqrt(1/len(x)*sum(asarray(x)**2)))-exp(1/len(x)* \
+#     sum(cos(2*pi*asarray(x))))+exp(1)+20  #Ackley函数
 ##---------------------------------------------------------------
 
-def f(x):
-    y = (x[0] - 3.5) ** 2 + (x[1] + 1) ** 2
-    return y
-
+# def f(x):
+#     y = (x[0] - 3.5) ** 2 + (x[1] + 1) ** 2
+#     return y
+from matplotlib.pyplot import *
+import numpy as np
 
 # 确保lowb、upperb与n_par一致
 if len(lowb) != n_par:
@@ -90,10 +89,21 @@ if n_par == 2 and debug != 1:
     for i in xrange(0, size(X, 0)):
         for j in xrange(0, size(X, 1)):
             z[i, j] = f([X[i, j], Y[i, j]])
-    contourf(X, Y, z)
-    colorbar()
 
-start = time.time()
+    contourf(X, Y, z)
+    # cmap = matplotlib.cm.jet
+    # # 设定每个图的colormap和colorbar所表示范围是一样的，即归一化
+    # norm = matplotlib.colors.Normalize(vmin=160, vmax=300)
+    # # 显示图形，此处没有使用contourf #>>>ctf=plt.contourf(grid_x,grid_y,grid_z)
+    # imshow(z.T, origin='lower', cmap=cmap, norm=norm)
+    # colorbar()
+    # mycmap = cm.get_cmap('jet')
+    # mycmap.set_under('w')
+    # colorbar(mycmap)
+    colorbar()
+    # cbar = colorbar()
+    # cbar.set_ticks([0,200,400,600,800,1000])
+
 # Monte Carlo方法
 if method == 'MC':
     data = zeros([ns * nr + nr, n_par])
@@ -109,11 +119,13 @@ if method == 'MC':
     print(data[chindex, :], chdata)
     show()
     exit()
+
+
 ##---------------------------------------------------------------
 # NA算法
 ##---------------------------------------------------------------
-data = zeros([ns, n_par])
-misfit = zeros(ns)
+# data = zeros([ns, n_par])
+# misfit = zeros(ns)
 
 
 def init_point(index):
@@ -121,29 +133,6 @@ def init_point(index):
     misfit = f(data)
     return [data, misfit]
 
-
-par_index = sc.parallelize(np.arange(0, ns), numSlices=parallel_num)
-outvalue = par_index.map(init_point).collect()
-data = map(lambda x: x[0], outvalue)
-data = asarray(data)
-misfit = map(lambda x: x[1], outvalue)
-misfit = asarray(misfit)
-
-
-# print(data.shape)
-# print(misfit.shape)
-
-# # 随机生成ns个样本，并绘图
-# for i in xrange(ns):
-#     data[i, :] = lowb + (upperb - lowb) * random.rand(1, n_par)
-#     misfit[i] = f(data[i, :])
-# #
-
-
-# title('neighbourhood algoritthm with ns=' + str(ns) + ' nr=' + str(nr))
-# scatter(data[:,x_idx],data[:,y_idx])
-# show()
-# exit()
 
 def genarate_point(index):
     orpt = chindex[index]
@@ -180,49 +169,99 @@ def genarate_point(index):
             # print range1
             newx_loc = range1[0] + (range1[1] - range1[0]) * random.rand()  # 均分分布生成新的坐标
             tmpdata[i] = newx_loc
-        oridata = oridata + [list(tmpdata)]  # 该次迭代生成的ns个样本
-        misfit = misfit + [f(tmpdata)]
+        oridata += [list(tmpdata)]  # 该次迭代生成的ns个样本
+        misfit += [f(tmpdata)]
     return (oridata, misfit)
 
+time_statics=np.zeros((len(parallel_nums),n_itr))
 
-# 选择nr个样本点，生成ns个样本
-datasum = data.copy()
-for itr in xrange(1, n_itr + 1):
-    print('iteration number is ' + str(itr))
-    if itr != 1:
-        data = oridata.copy()
-    else :
-        orimisfit = misfit
-    # for i in xrange(size(data, 0)):
+parallel_num_index = 0
+for parallel_num in parallel_nums:
+    print("parallel_num: {} ,n_iter: {}".format(parallel_num,n_itr))
+    start = time.time()
+    par_index = sc.parallelize(np.arange(0, ns), numSlices=parallel_num)
+    outvalue = par_index.map(init_point).collect()
+    data = map(lambda x: x[0], outvalue)
+    data = asarray(data)
+    misfit = map(lambda x: x[1], outvalue)
+    misfit = asarray(misfit)
+
+    # print(data.shape)
+    # print(misfit.shape)
+
+    # # 随机生成ns个样本，并绘图
+    # for i in xrange(ns):
+    #     data[i, :] = lowb + (upperb - lowb) * random.rand(1, n_par)
     #     misfit[i] = f(data[i, :])
-    # 在前一次迭代生成的ns个样本中选择misfit最小的nr个
+    # #
 
-    chdata = sort(orimisfit)
-    chindex = argsort(orimisfit)
-    oridata = []
-    print('data: ', str(data[chindex[0], :]))
-    print('misfit is ', str(chdata[0]))
+    # title('neighbourhood algoritthm with ns=' + str(ns) + ' nr=' + str(nr))
+    # scatter(data[:, x_idx], data[:, y_idx])
+    # show()
+    # exit()
 
-    chdata = sc.broadcast(chdata).value
-    chindex = sc.broadcast(chindex).value
-    datasum = sc.broadcast(datasum).value
+    # progress = progressbar.ProgressBar(n_itr)
+    bar = progressbar.ProgressBar(widgets=[
+        ' [', progressbar.Timer(), '] ',
+        progressbar.Bar(),
+        ' (', progressbar.ETA(), ') ',
+    ])
+    # 选择nr个样本点，生成ns个样本
+    datasum = data.copy()
+    for itr in bar(range(1, n_itr + 1)):
+        # print('iteration number is ' + str(itr))
+        if itr != 1:
+            data = oridata.copy()
+        else:
+            orimisfit = misfit
+        # for i in xrange(size(data, 0)):
+        #     misfit[i] = f(data[i, :])
+        # 在前一次迭代生成的ns个样本中选择misfit最小的nr个
 
-    par_index = sc.parallelize(np.arange(0, nr), numSlices=parallel_num)
-    outvalue = par_index.map(lambda x: genarate_point(x)).collect()
-    oridata = map(lambda x: x[0], outvalue)
-    oridata = asarray(oridata).reshape((-1, 2))
-    orimisfit = map(lambda x: x[1], outvalue)
-    orimisfit = asarray(orimisfit).reshape((-1,))
+        chdata = sort(orimisfit)
+        chindex = argsort(orimisfit)
+        oridata = []
+        # print('data: ', str(data[chindex[0], :]))
+        # print('misfit is ', str(chdata[0]))
 
-    datasum = asarray(list(datasum) + list(oridata))  # 生成的总样本数
-    misfit = asarray(list(misfit) + list(orimisfit))
+        chdata = sc.broadcast(chdata).value
+        chindex = sc.broadcast(chindex).value
+        datasum = sc.broadcast(datasum).value
 
-sc.stop()
+        par_index = sc.parallelize(np.arange(0, nr), numSlices=parallel_num)
+        outvalue = par_index.map(lambda x: genarate_point(x)).collect()
+        oridata = map(lambda x: x[0], outvalue)
+        oridata = asarray(oridata).reshape((-1, 2))
+        orimisfit = map(lambda x: x[1], outvalue)
+        orimisfit = asarray(orimisfit).reshape((-1,))
 
-end = time.time()
-costTime = end - start
-print "The job is finished!"
-print "Cost time: {:.2f}s".format(costTime)
+        datasum = asarray(list(datasum) + list(oridata))  # 生成的总样本数
+        misfit = asarray(list(misfit) + list(orimisfit))
 
-scatter(datasum[:, x_idx], datasum[:, y_idx])
+        end = time.time()
+        costTime = end - start
+        time_statics[parallel_num_index,itr-1] = costTime
+
+    parallel_num_index += 1
+    print "The job is finished!"
+    print "Cost time: {:.2f}s".format(costTime)
+    # scatter(datasum[:, x_idx], datasum[:, y_idx])
+    # show()
+
+import pickle
+output = open('data.pkl', 'wb')
+# Pickle dictionary using protocol 0.
+pickle.dump(time_statics, output)
+output.close()
+
+file=open("data.pkl")
+time_statics=pickle.load(file)
+figure()
+plot(time_statics[0,:])
+hold(True)
+plot(time_statics[1,:])
+plot(time_statics[2,:])
+plot(time_statics[3,:])
 show()
+exit()
+
