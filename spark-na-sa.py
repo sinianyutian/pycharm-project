@@ -6,10 +6,15 @@
 # Email:huangweihang14@mails.ucas.ac.cn
 # Data:2016-12-28
 
+import os
+
+os.environ["SPARK_HOME"] = "/usr/local/spark"
+
 import time
 
 from matplotlib.pyplot import *
 from numpy import *
+import numpy as np
 from pyspark import SparkContext
 
 # Initialize SparkContext
@@ -18,8 +23,8 @@ sc = SparkContext("spark://ubuntu:7077", "spark na-sa")
 # print words.count()
 
 n_itr = 20  # 迭代次数
-ns = 1000  # ns参数
-nr = 100  # nr参数 可设为自适应参数
+ns = 100  # ns参数
+nr = 10  # nr参数 可设为自适应参数
 n_par = 2  # 参数个数
 lowb = asarray([-10, -10])  # 下边界
 upperb = asarray([10, 10])  # 上边界
@@ -27,7 +32,7 @@ x_idx = 0  # 显示i分量为x轴
 y_idx = 1  # 显示j分量为y轴
 debug = 0  # 是否开启调试模式,0关闭，1开启（n_par~=2时自动关闭）
 method = 'NA'  # 'MC' 蒙特卡洛算法,'NA' 邻近算法
-parallel_num = 4
+parallel_num = 2
 
 
 # ##---------------------------------------------------------------
@@ -117,21 +122,24 @@ def init_point(index):
     return [data, misfit]
 
 
-# par_index = sc.parallelize(np.arange(0, ns), numSlices=parallel_num)
-# outvalue=par_index.map(init_point).collect()
-# data = outvalue[0,:]
-# data = np.asarray(data)
-# misfit = outvalue[1]
-# misfit = np.asarray(misfit)
-#
+par_index = sc.parallelize(np.arange(0, ns), numSlices=parallel_num)
+outvalue = par_index.map(init_point).collect()
+data = map(lambda x: x[0], outvalue)
+data = asarray(data)
+misfit = map(lambda x: x[1], outvalue)
+misfit = asarray(misfit)
+
+
 # print(data.shape)
 # print(misfit.shape)
 
 # # 随机生成ns个样本，并绘图
-for i in xrange(ns):
-    data[i, :] = lowb + (upperb - lowb) * random.rand(1, n_par)
-    misfit[i] = f(data[i, :])
-#
+# for i in xrange(ns):
+#     data[i, :] = lowb + (upperb - lowb) * random.rand(1, n_par)
+#     misfit[i] = f(data[i, :])
+# #
+
+
 # title('neighbourhood algoritthm with ns=' + str(ns) + ' nr=' + str(nr))
 # scatter(data[:,x_idx],data[:,y_idx])
 # show()
@@ -142,6 +150,7 @@ def genarate_point(index):
     vdata = data[orpt, :].copy()
     tmpdata = vdata.copy()
     oridata = []
+    misfit = []
     for kk in xrange(int(ns / nr)):
         # print "kk",kk
         for i in xrange(n_par):  # 进行n_par个坐标循环
@@ -171,9 +180,9 @@ def genarate_point(index):
             # print range1
             newx_loc = range1[0] + (range1[1] - range1[0]) * random.rand()  # 均分分布生成新的坐标
             tmpdata[i] = newx_loc
-        oridata = list(oridata) + [list(tmpdata)]  # 该次迭代生成的ns个样本
-        oridata = asarray(oridata)
-    return oridata
+        oridata = oridata + [list(tmpdata)]  # 该次迭代生成的ns个样本
+        misfit = misfit + [f(tmpdata)]
+    return (oridata, misfit)
 
 
 # 选择nr个样本点，生成ns个样本
@@ -182,11 +191,14 @@ for itr in xrange(1, n_itr + 1):
     print('iteration number is ' + str(itr))
     if itr != 1:
         data = oridata.copy()
-    for i in xrange(size(data, 0)):
-        misfit[i] = f(data[i, :])
+    else :
+        orimisfit = misfit
+    # for i in xrange(size(data, 0)):
+    #     misfit[i] = f(data[i, :])
     # 在前一次迭代生成的ns个样本中选择misfit最小的nr个
-    chdata = sort(misfit)
-    chindex = argsort(misfit)
+
+    chdata = sort(orimisfit)
+    chindex = argsort(orimisfit)
     oridata = []
     print('data: ', str(data[chindex[0], :]))
     print('misfit is ', str(chdata[0]))
@@ -196,10 +208,14 @@ for itr in xrange(1, n_itr + 1):
     datasum = sc.broadcast(datasum).value
 
     par_index = sc.parallelize(np.arange(0, nr), numSlices=parallel_num)
-    oridata = par_index.flatMap(lambda x: genarate_point(x)).collect()
-    oridata = np.asarray(oridata)
+    outvalue = par_index.map(lambda x: genarate_point(x)).collect()
+    oridata = map(lambda x: x[0], outvalue)
+    oridata = asarray(oridata).reshape((-1, 2))
+    orimisfit = map(lambda x: x[1], outvalue)
+    orimisfit = asarray(orimisfit).reshape((-1,))
 
     datasum = asarray(list(datasum) + list(oridata))  # 生成的总样本数
+    misfit = asarray(list(misfit) + list(orimisfit))
 
 sc.stop()
 
@@ -209,4 +225,4 @@ print "The job is finished!"
 print "Cost time: {:.2f}s".format(costTime)
 
 scatter(datasum[:, x_idx], datasum[:, y_idx])
-# show()
+show()
