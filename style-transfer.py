@@ -35,6 +35,9 @@ import argparse
 from keras.applications import vgg16
 from keras.layers import Input
 
+import keras
+keras.callbacks.TensorBoard
+
 # parser = argparse.ArgumentParser(description='Style Transfer Dreams with Keras.')
 # parser.add_argument('base_image_path', metavar='base', type=str,
 #                     help='Path to the image to transform.')

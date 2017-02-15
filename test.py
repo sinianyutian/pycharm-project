@@ -5,6 +5,9 @@
 # import cv2
 #
 # img = cv2.imread("./images/didi.jpg")
+# img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+# print(img.shape)
+# img = cv2.resize(img, (168, 168), interpolation=cv2.INTER_CUBIC)
 # cv2.namedWindow("Image")
 # cv2.imshow("Image", img)
 # cv2.waitKey(0)
