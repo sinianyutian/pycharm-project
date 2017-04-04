@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
+
 from keras.applications.vgg16 import VGG16
 from keras.preprocessing import image
 from keras.applications.resnet50 import preprocess_input, decode_predictions
 import numpy as np
+
 
 
 model = VGG16(weights='imagenet')
@@ -31,7 +33,7 @@ img = image.load_img(img_path, target_size=(224, 224))
 x = image.img_to_array(img)
 x = np.expand_dims(x, axis=0)
 x = preprocess_input(x)
-model.fit_generator()
+# model.fit_generator()
 preds = model.predict(x)
 tags = decode_predictions(preds, top=3)[0]
 # decode the results into a list of tuples (class, description, probability)

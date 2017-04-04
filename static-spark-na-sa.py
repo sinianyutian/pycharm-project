@@ -8,6 +8,8 @@
 
 import os
 
+from pyspark import SparkConf
+
 os.environ["SPARK_HOME"] = "/usr/local/spark"
 
 import time
@@ -17,13 +19,16 @@ from pyspark import SparkContext
 import progressbar
 
 # Initialize SparkContext
-sc = SparkContext("spark://ubuntu:7077", "spark na-sa")
+# sc = SparkContext("yarn", "spark na-sa")
+conf = SparkConf().setMaster("local[8]").setAppName("My App")
+sc = SparkContext(conf=conf)
 # words = sc.parallelize(["scala", "java", "hadoop", "spark", "akka"])
 # print words.count()
+# exit()
 
-n_itr = 20  # 迭代次数
-ns = 10  # ns参数
-nr = 2  # nr参数 可设为自适应参数
+n_itr = 1500  # 迭代次数
+ns = 100  # ns参数
+nr = 20  # nr参数 可设为自适应参数
 n_par = 2  # 参数个数
 lowb = asarray([-10, -10])  # 下边界
 upperb = asarray([10, 10])  # 上边界
@@ -31,7 +36,7 @@ x_idx = 0  # 显示i分量为x轴
 y_idx = 1  # 显示j分量为y轴
 debug = 0  # 是否开启调试模式,0关闭，1开启（n_par~=2时自动关闭）
 method = 'NA'  # 'MC' 蒙特卡洛算法,'NA' 邻近算法
-parallel_nums = [1, 2, 3, 4]
+parallel_nums = [1, 2, 3, 4, 5, 6, 7, 8]
 
 # ##---------------------------------------------------------------
 # 目标函数设置
@@ -173,11 +178,12 @@ def genarate_point(index):
         misfit += [f(tmpdata)]
     return (oridata, misfit)
 
-time_statics=np.zeros((len(parallel_nums),n_itr))
+
+time_statics = np.zeros((len(parallel_nums), n_itr))
 
 parallel_num_index = 0
 for parallel_num in parallel_nums:
-    print("parallel_num: {} ,n_iter: {}".format(parallel_num,n_itr))
+    print("parallel_num: {} ,n_iter: {}".format(parallel_num, n_itr))
     start = time.time()
     par_index = sc.parallelize(np.arange(0, ns), numSlices=parallel_num)
     outvalue = par_index.map(init_point).collect()
@@ -200,7 +206,7 @@ for parallel_num in parallel_nums:
     # show()
     # exit()
 
-    # progress = progressbar.ProgressBar(n_itr)
+    progress = progressbar.ProgressBar(n_itr)
     bar = progressbar.ProgressBar(widgets=[
         ' [', progressbar.Timer(), '] ',
         progressbar.Bar(),
@@ -240,7 +246,7 @@ for parallel_num in parallel_nums:
 
         end = time.time()
         costTime = end - start
-        time_statics[parallel_num_index,itr-1] = costTime
+        time_statics[parallel_num_index, itr - 1] = costTime
 
     parallel_num_index += 1
     print "The job is finished!"
@@ -249,19 +255,19 @@ for parallel_num in parallel_nums:
     # show()
 
 import pickle
-output = open('data.pkl', 'wb')
+
+output = open('par_data.pkl', 'wb')
 # Pickle dictionary using protocol 0.
 pickle.dump(time_statics, output)
 output.close()
-
-file=open("data.pkl")
-time_statics=pickle.load(file)
-figure()
-plot(time_statics[0,:])
-hold(True)
-plot(time_statics[1,:])
-plot(time_statics[2,:])
-plot(time_statics[3,:])
-show()
-exit()
-
+#
+# file = open("data.pkl")
+# time_statics = pickle.load(file)
+# figure()
+# plot(time_statics[0, :])
+# hold(True)
+# plot(time_statics[1, :])
+# plot(time_statics[2, :])
+# plot(time_statics[3, :])
+# show()
+# exit()

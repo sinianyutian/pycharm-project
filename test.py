@@ -1,4 +1,37 @@
 # -*- coding:utf-8 -*-
+import fire
+
+def identity(arg=None,other=None):
+  return arg, type(arg),other,type(other)
+# class Widget(object):
+#
+#   def whack(self, n=1):
+#     """Prints "whack!" n times."""
+#     return ' '.join('whack!' for _ in xrange(n))
+#
+#   def bang(self, noise='bang'):
+#     """Makes a loud noise."""
+#     return '{noise} bang!'.format(noise=noise)
+
+
+def main():
+  # fire.Fire(Widget(), name='test')
+  fire.Fire(identity, name='test')
+
+if __name__ == '__main__':
+  main()
+
+# import difflib
+#
+# import fire
+#
+#
+# def main():
+#   fire.Fire(difflib, name='difffull')
+#
+# if __name__ == '__main__':
+#   main()
+
 #####################################################
 ##   cv2 test
 #####################################################
