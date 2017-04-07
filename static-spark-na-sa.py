@@ -26,7 +26,7 @@ sc = SparkContext(conf=conf)
 # print words.count()
 # exit()
 
-n_itr = 1500  # 迭代次数
+n_itr = 1000  # 迭代次数
 ns = 100  # ns参数
 nr = 20  # nr参数 可设为自适应参数
 n_par = 2  # 参数个数
