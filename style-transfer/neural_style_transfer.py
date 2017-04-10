@@ -151,12 +151,13 @@ outputs_dict = dict([(layer.name, layer.output) for layer in model.layers])
 
 
 def gram_matrix(x):
-    assert K.ndim(x) == 3
-    if K.image_dim_ordering() == 'th':
-        features = K.batch_flatten(x)
-    else:
-        features = K.batch_flatten(K.permute_dimensions(x, (2, 0, 1)))
-    gram = K.dot(features, K.transpose(features))
+    assert K.ndim(x) == 4
+    xs = K.shape(x)
+    # features = K.reshape(x, (xs[0], xs[1], xs[2] * xs[3]))
+    # gram = K.batch_dot(features, K.permute_dimensions(features, (0, 2, 1)))
+    x = K.permute_dimensions(x, (0, 3, 1, 2))
+    features = K.reshape(x, (xs[0], xs[1], xs[2] * xs[3]))
+    gram = K.batch_dot(features, K.permute_dimensions(features, (0, 2, 1)))
     return gram
 
 # the "style loss" is designed to maintain

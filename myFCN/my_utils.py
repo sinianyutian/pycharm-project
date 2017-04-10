@@ -118,6 +118,7 @@ class ImageIterator(Iterator):
         tmp_data1, tmp_data2 = image_iter[0]
         self.x_shape = tmp_data1.shape
         self.y_shape = tmp_data2.shape
+        self.batch_size = batch_size
 
         self.save_to_dir = save_to_dir
         self.save_prefix = save_prefix
@@ -135,10 +136,14 @@ class ImageIterator(Iterator):
         # the indexing of each batch.
         with self.lock:
             index_array, current_index, current_batch_size = next(self.index_generator)
+        while len(index_array) != self.batch_size:
+            with self.lock:
+                index_array, current_index, current_batch_size = next(self.index_generator)
         # The transformation of images is not under thread lock
         # so it can be done in parallel
         batch_x = np.zeros(tuple([current_batch_size] + list(self.x_shape)), dtype=K.floatx())
         batch_y = np.zeros(tuple([current_batch_size] + list(self.y_shape)), dtype=K.floatx())
+
         for i, j in enumerate(index_array):
             x, y = self.image_iter[j]
             # x = self.image_data_generator.random_transform(x.astype(K.floatx()))

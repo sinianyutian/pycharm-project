@@ -57,7 +57,7 @@ def build_model(input_size=(256, 256)):
 
     netCycle = Model([x, y], [x_out, y_true, y_out, x_true])
     adamCycle = Adam()
-    #notice: model_2->cycle_acc has no meaning!
+    # notice: model_2->cycle_acc has no meaning!
     netCycle.compile(optimizer=adamCycle,
                      loss=[mean_absolute_error, mean_absolute_error, cycle_loss, mean_absolute_error],
                      metrics={'model_2': cycle_acc, 'model_3': binary_accuracy,
@@ -66,8 +66,8 @@ def build_model(input_size=(256, 256)):
     return netG, netF, netDy, netDx, netCycle
 
 
-def draw_batch_images(my_gen_datas, my_gen_labels, batch_size=5):
-    plt.figure(figsize=(124, 124))
+def draw_batch_images(my_gen_datas, my_gen_labels, batch_size=5, is_save=True, prefix='cycleGAN-', index_pro=1):
+    plt.figure(figsize=(100, 40))
     for index in range(batch_size):
         datum = my_gen_datas[index]
         datum *= 255.
@@ -77,7 +77,10 @@ def draw_batch_images(my_gen_datas, my_gen_labels, batch_size=5):
         plt.imshow(datum.astype(np.uint8))
         plt.subplot(2, batch_size, batch_size + index + 1)
         plt.imshow(label)
-    plt.show()
+    if is_save:
+        plt.savefig(prefix + str(index_pro) + '.jpg')
+    else:
+        plt.show()
     return
 
 
@@ -145,13 +148,13 @@ if __name__ == '__main__':
 
     finally:
         if is_test:
-            for i in range(5):
+            for _ in range(5):
                 x_test, y_test = my_gen_train.next()
                 y_pred = netG.predict(x_test)
-                draw_batch_images(x_test, y_pred)
+                draw_batch_images(x_test, y_pred, index_pro=111,is_save=False)
 
-                x_pred = netF.predict(x_test)
-                draw_batch_images(x_pred, y_test)
+                x_pred = netF.predict(y_test)
+                draw_batch_images(x_pred, y_test, index_pro=222,is_save=False)
             exit()
 
         print("load total samples:" + str(data_total_len))
@@ -230,7 +233,7 @@ if __name__ == '__main__':
                 print(ROW_FMT.format('Dy and x->GF->xp',
                                      loss_Cycle[2], loss_Cycle[6], loss_Cycle[1], loss_Cycle[5]))
                 print(ROW_FMT.format('Dy', loss_Dy[0], loss_Dy[1], 0.0, 0.0))
-                print(ROW_FMT.format('Dx and y->FG->yp)',
+                print(ROW_FMT.format('Dx and y->FG->yp',
                                      loss_Cycle[4], loss_Cycle[8], loss_Cycle[3], loss_Cycle[7]))
                 print(ROW_FMT.format('Dx', loss_Dx[0], loss_Dx[1], 0.0, 0.0))
 
@@ -246,6 +249,12 @@ if __name__ == '__main__':
                                        "netDx-epoch.{0}-loss.{1:.4f}.hdf5".format(epoch, loss_Dx[0]))
                     netCycle.save_weights(weight_path +
                                           "netCycle-epoch.{0}-loss.{1:.4f}.hdf5".format(epoch, loss_Cycle[0]))
+                    x_test, y_test = my_gen_train.next()
+                    y_pred = netG.predict(x_test)
+                    draw_batch_images(x_test, y_pred, index_pro=111)
+
+                    x_pred = netF.predict(y_test)
+                    draw_batch_images(x_pred, y_test, index_pro=222)
         finally:
             if enqueuer is not None:
                 enqueuer.stop()
